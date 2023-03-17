@@ -1,0 +1,211 @@
+University: ITMO University
+Faculty: FICT
+Course: Introduction to distributed technologies
+Year: 2022/2023
+Group: K4110c
+Author: Kopyatkevich Anton
+Lab: Lab3 Date of create: 19.02.2023
+Date of finished: 26.02.2023
+
+
+Описание
+В данной лабораторной работе вы познакомитесь с сертификатами и "секретами" в Minikube, правилами безопасного хранения данных в Minikube.
+
+Цель работы
+Познакомиться с сертификатами и "секретами" в Minikube, правилами безопасного хранения данных в Minikube.
+
+Ход работы
+Вам необходимо создать configMap с переменными: REACT_APP_USERNAME, REACT_APP_COMPANY_NAME.
+
+Вам необходимо создать replicaSet с 2 репликами контейнера ifilyaninitmo/itdt-contained-frontend:master и используя ранее созданный configMap передать переменные REACT_APP_USERNAME, REACT_APP_COMPANY_NAME .
+
+Включить minikube addons enable ingress и сгенерировать TLS сертификат, импортировать сертификат в minikube.
+
+Создать ingress в minikube, где указан ранее импортированный сертификат, FQDN по которому вы будете заходить и имя сервиса который вы создали ранее.
+
+В hosts пропишите FQDN и IP адрес вашего ingress и попробуйте перейти в браузере по FQDN имени.
+
+Войдите в веб приложение по вашему FQDN используя HTTPS и проверьте наличие сертификата.
+
+Обычно в браузере это маленький замочек рядом с FQDN сайта, нажмите на него и сделайте скриншот с информацией.
+
+Ход работы
+
+Запускаем minikube 
+
+minikube start
+
+Создадим для этой лабораторной работы отдельный namespace
+
+kubectl apply -f C:\Users\HP\Desktop\namespace.yaml
+
+манифест следующий:
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lab3ns
+  
+Проверим новый namespace
+
+minikube kubectl get namespace
+
+Развернём манифест ConfigMap
+
+kubectl apply -f C:\Users\HP\Desktop\configmap.yaml
+
+Манифест ConfigMap:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab3config
+  namespace: lab3ns
+data:
+    ReactAppUserName: Anton
+    ReactAppCompanyName: ITMO
+    
+Проверим ConfigMap 
+
+kubectl -n lab3ns get configmap
+
+Развернём манифест ReplicaSet
+
+kubectl apply -f C:\Users\HP\Desktop\lab3replicaset.yaml
+
+манифест ReplicaSet:
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: lab3replicaset
+  namespace: lab3ns
+  labels:
+    app: lab3app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lab3app
+  template:
+    metadata:
+      labels:
+        app: lab3app
+    spec:        
+      containers:
+      - name: lab3container
+        image: ifilyaninitmo/itdt-contained-frontend:master
+        ports:
+        - containerPort: 3000
+        env:
+        - name: REACT_APP_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: lab3config
+              key: ReactAppUserName
+        - name: REACT_APP_COMPANY_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: lab3config
+              key: ReactAppCompanyName
+  
+Проверим список запущенных подов
+  
+kubectl -n lab3ns get pod -o wide
+
+Развернём манифест Service
+
+kubectl apply -f service.yaml 
+
+Манифест Service:
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: lab3ns
+  name: lab3service
+spec:
+  selector:
+    app: lab3app
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+      nodePort: 32222
+
+Проверим сервис
+
+kubectl -n lab3ns get svc
+
+Для генерации TLS воспользуемся инструментом командной строки OpenSSL
+(Настроить поможет это видео https://www.youtube.com/watch?v=cBa87N_BZ4s)
+
+Генерируем приватный ключ в командной строке
+
+openssl genrsa -out lab3.key 2048
+
+openssl req -key lab3.key -new -out lab3.csr
+
+Заполняем данные и оязательное поле - common name, в нём мы пишем доменное имя lab3.anton
+
+openssl x509 -signkey lab3.key -in lab3.csr -req -days 30 -out lab3.crt
+
+Результат:
+Certificate request self-signature ok
+subject=C = RU, ST = Russia, L = Saint-Petersburg, O = ITMO university, OU = FICT, CN = lab3.anton  
+
+Создади secret с нашим сертификатом
+
+kubectl -n lab3ns create secret tls lab3-tls --cert=lab3.crt --key=lab3.key
+
+Результат:
+secret/lab3-tls created
+
+Проверим добавился ли secret
+
+kubectl -n lab3ns get secret
+
+NAME       TYPE                DATA   AGE
+lab3-tls   kubernetes.io/tls   2      37s
+
+Подключаем Ingress
+
+minikube addons enable ingress
+minikube addons enable ingress-dns
+
+Развернём манифест Ingress
+
+kubectl apply -f C:\Users\HP\Desktop\lab3-ingress.yaml
+
+Манифест Ingress:
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: lab3ns
+  name: lab3ingress
+spec:
+  tls:
+  - hosts:
+      - lab3.anton
+    secretName: lab3-tls
+  rules:
+  - host: lab3.anton
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: lab3-service
+            port:
+              number: 3000
+  
+  
+  добавляем в папку hosts наш хост:
+  
+  127.0.0.1 lab3.anton
+  
+  Далее  подключаемся к нему при помощи тунеллирования 
+  
+  minikube tunnel
+  
+  Открываем страницу - https://lab3.anton
+
+
