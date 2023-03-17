@@ -34,6 +34,11 @@ minikube delete
 ```bash
 minikube kubectl
 ```
+создадим alias
+```bash
+doskey kubectl="minikube kubectl --"
+```
+
 Следующей командой мы сохраняем манифест и деплоим под
 ```bash
 kubectl apply -f C:\Users\HP\Desktop\vault.yaml
@@ -58,3 +63,26 @@ spec:
     image: vault:latest
     ports:
     - containerPort: 8200  
+    
+Создаём сервис доступа к контейнеру с помощью команды 
+```bash
+minikube kubectl -- expose pod vault --type=NodePort --port=8200
+```
+и видим ответ service/vault exposed
+
+Далее, чтобы попасть в контейнер пишем 
+```bash
+minikube kubectl -- port-forward service/vault 8200:8200
+```
+
+переходим по ссылке http://localhost:8200
+
+Входим по токену, который можно узнать введя команду 
+```bash
+minikube kubectl -- logs service/vault
+```
+Работа выполнена, осталось только остановить кластер командой 
+```bash
+minikube stop
+```
+
