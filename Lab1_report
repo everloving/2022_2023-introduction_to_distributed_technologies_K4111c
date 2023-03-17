@@ -1,0 +1,60 @@
+University: ITMO University
+Faculty: FICT
+Course: Introduction to distributed technologies
+Year: 2022/2023
+Group: K4111c
+Author:Kopyatkevich Anton
+Lab: Lab1
+Date of create: 21.12.2022
+Date of finished: 25.12.2022
+
+Описание
+Это первая лабораторная работа в которой вы сможете протестировать Docker, установить Minikube и развернуть свой первый "под".
+
+Цель работы
+Ознакомиться с инструментами Minikube и Docker, развернуть свой первый "под".
+
+Ход работы
+
+Скачали докер и миникуб. Теперь надо развернуть миникуб командой 
+
+```bash
+minikube start
+```
+Тут я совершенно забыл, что переустанавливал систему из-за того, что жёсткий диск сломался и миникуб не хотел запускаться.
+Нужно было включить виртуализацию в BIOS, потом включить Hyper-V и наконец по совету PowerShell очистить все связи кластера minikube командой 
+
+```bash
+minikube delete
+```
+а уже после minikube start заработало как надо
+
+- После запуска minikube cluster вы сможете взаимодействовать с k8s используя команду:
+  
+```bash
+minikube kubectl
+```
+Следующей командой мы сохраняем манифест и деплоим под
+```bash
+kubectl apply -f C:\Users\HP\Desktop\vault.yaml
+```
+Этой командой мы проверям наш под
+```bash
+kubectl get pod
+```
+
+
+текст манифеста:
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vault
+  labels:
+    app: vault-pod
+spec:
+  containers:
+  - name: testname
+    image: vault:latest
+    ports:
+    - containerPort: 8200  
